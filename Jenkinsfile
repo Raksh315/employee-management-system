@@ -28,15 +28,33 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo 'Building Employee Management Application'
-                sh 'mvn -B clean package -DskipTests'
+                echo 'Compiling Employee Management Application'
+                sh 'mvn -B clean compile'
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                echo 'Running JUnit and Mockito Unit Tests'
+                sh 'mvn -B -Dtest=EmployeeServiceImplTest test'
+            }
+        }
+
+        stage('Package Application') {
+            steps {
+                echo 'Packaging Spring Boot Application'
+                sh 'mvn -B package -DskipTests'
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 echo 'Building Docker Image'
-                sh 'docker build -t employee-management:${BUILD_NUMBER} .'
+
+                sh '''
+                    docker build \
+                      -t employee-management:${BUILD_NUMBER} .
+                '''
             }
         }
 
@@ -58,7 +76,9 @@ pipeline {
         stage('Push Image to ECR') {
             steps {
                 sh '''
-                    docker tag employee-management:${BUILD_NUMBER} ${ECR_REPOSITORY_URI}:${BUILD_NUMBER}
+                    docker tag employee-management:${BUILD_NUMBER} \
+                        ${ECR_REPOSITORY_URI}:${BUILD_NUMBER}
+
                     docker push ${ECR_REPOSITORY_URI}:${BUILD_NUMBER}
                 '''
             }
@@ -67,9 +87,9 @@ pipeline {
         stage('Register ECS Task Definition') {
             steps {
                 sh '''
-                    set -e
+                    set -eu
 
-                    echo "Getting current ECS task definition..."
+                    echo "Retrieving current ECS task definition..."
 
                     CURRENT_TASK_DEFINITION=$(aws ecs describe-services \
                         --cluster ${ECS_CLUSTER} \
@@ -78,7 +98,13 @@ pipeline {
                         --query 'services[0].taskDefinition' \
                         --output text)
 
-                    echo "Current task definition: ${CURRENT_TASK_DEFINITION}"
+                    if [ -z "$CURRENT_TASK_DEFINITION" ] || \
+                       [ "$CURRENT_TASK_DEFINITION" = "None" ]; then
+                        echo "ERROR: Could not find current task definition."
+                        exit 1
+                    fi
+
+                    echo "Current revision: $CURRENT_TASK_DEFINITION"
 
                     aws ecs describe-task-definition \
                         --task-definition "$CURRENT_TASK_DEFINITION" \
@@ -86,7 +112,7 @@ pipeline {
                         --query 'taskDefinition' \
                         --output json > task-definition.json
 
-                    echo "Updating Docker image in task definition..."
+                    echo "Updating container image..."
 
                     jq --arg IMAGE "${ECR_REPOSITORY_URI}:${BUILD_NUMBER}" \
                        --arg CONTAINER "${CONTAINER_NAME}" '
@@ -113,7 +139,7 @@ pipeline {
                         end
                     ' task-definition.json > task-definition-rendered.json
 
-                    echo "Registering new ECS task definition revision..."
+                    echo "Registering new ECS revision..."
 
                     aws ecs register-task-definition \
                         --cli-input-json file://task-definition-rendered.json \
@@ -121,7 +147,7 @@ pipeline {
                         --query 'taskDefinition.taskDefinitionArn' \
                         --output text > task-definition-arn.txt
 
-                    echo "Registered task definition:"
+                    echo "New task definition:"
                     cat task-definition-arn.txt
                 '''
             }
@@ -130,7 +156,7 @@ pipeline {
         stage('Deploy to ECS') {
             steps {
                 sh '''
-                    set -e
+                    set -eu
 
                     NEW_TASK_DEFINITION=$(cat task-definition-arn.txt)
 
@@ -142,14 +168,77 @@ pipeline {
                         --task-definition "$NEW_TASK_DEFINITION" \
                         --region ${AWS_REGION}
 
-                    echo "Waiting for ECS service to become stable..."
+                    echo "Monitoring ECS deployment..."
 
-                    aws ecs wait services-stable \
-                        --cluster ${ECS_CLUSTER} \
-                        --services ${ECS_SERVICE} \
-                        --region ${AWS_REGION}
+                    START_TIME=$(date +%s)
+                    TIMEOUT_SECONDS=1200
+                    POLL_INTERVAL=15
 
-                    echo "ECS deployment completed!"
+                    while true; do
+
+                        SERVICE_JSON=$(aws ecs describe-services \
+                            --cluster ${ECS_CLUSTER} \
+                            --services ${ECS_SERVICE} \
+                            --region ${AWS_REGION} \
+                            --output json)
+
+                        SERVICE_STATUS=$(echo "$SERVICE_JSON" | jq -r '.services[0].status')
+                        DESIRED=$(echo "$SERVICE_JSON" | jq -r '.services[0].desiredCount')
+                        RUNNING=$(echo "$SERVICE_JSON" | jq -r '.services[0].runningCount')
+                        PENDING=$(echo "$SERVICE_JSON" | jq -r '.services[0].pendingCount')
+
+                        PRIMARY_TASK=$(echo "$SERVICE_JSON" | jq -r \
+                            '[.services[0].deployments[] | select(.status=="PRIMARY")][0].taskDefinition // "NONE"')
+
+                        ROLLOUT_STATE=$(echo "$SERVICE_JSON" | jq -r \
+                            '[.services[0].deployments[] | select(.status=="PRIMARY")][0].rolloutState // "UNKNOWN"')
+
+                        ACTIVE_DEPLOYMENTS=$(echo "$SERVICE_JSON" | jq \
+                            '[.services[0].deployments[] | select(.status=="PRIMARY" or .status=="ACTIVE")] | length')
+
+                        echo "Service: ${SERVICE_STATUS}"
+                        echo "Rollout: ${ROLLOUT_STATE}"
+                        echo "Desired: ${DESIRED}, Running: ${RUNNING}, Pending: ${PENDING}"
+                        echo "Active deployments: ${ACTIVE_DEPLOYMENTS}"
+
+                        if [ "$SERVICE_STATUS" != "ACTIVE" ]; then
+                            echo "ERROR: ECS service is not ACTIVE."
+                            exit 1
+                        fi
+
+                        if [ "$ROLLOUT_STATE" = "FAILED" ]; then
+                            echo "ERROR: ECS deployment failed."
+                            exit 1
+                        fi
+
+                        if [ "$PRIMARY_TASK" != "$NEW_TASK_DEFINITION" ] && \
+                           [ "$ROLLOUT_STATE" = "COMPLETED" ]; then
+                            echo "ERROR: ECS rolled back to another task definition."
+                            exit 1
+                        fi
+
+                        if [ "$PRIMARY_TASK" = "$NEW_TASK_DEFINITION" ] && \
+                           [ "$ROLLOUT_STATE" = "COMPLETED" ] && \
+                           [ "$RUNNING" -eq "$DESIRED" ] && \
+                           [ "$PENDING" -eq 0 ] && \
+                           [ "$ACTIVE_DEPLOYMENTS" -eq 1 ]; then
+
+                            echo "SUCCESS: ECS deployment completed!"
+                            break
+                        fi
+
+                        CURRENT_TIME=$(date +%s)
+                        ELAPSED=$((CURRENT_TIME - START_TIME))
+
+                        if [ "$ELAPSED" -ge "$TIMEOUT_SECONDS" ]; then
+                            echo "ERROR: ECS deployment exceeded 20 minutes."
+                            exit 1
+                        fi
+
+                        echo "Deployment in progress. Checking again in 15 seconds..."
+                        sleep "$POLL_INTERVAL"
+
+                    done
 
                     aws ecs describe-services \
                         --cluster ${ECS_CLUSTER} \
@@ -164,15 +253,18 @@ pipeline {
 
     post {
         always {
+            junit testResults: '**/target/surefire-reports/*.xml',
+                  allowEmptyResults: true
+
             sh 'docker logout ${ECR_REPOSITORY_URI%/*} || true'
         }
 
         success {
-            echo 'CI/CD pipeline completed! Application deployed to ECS.'
+            echo 'CI/CD pipeline completed! Unit tests passed and application deployed to ECS.'
         }
 
         failure {
-            echo 'Pipeline failed. Check the console output.'
+            echo 'Pipeline failed. Check the console output and test reports.'
         }
     }
 }
