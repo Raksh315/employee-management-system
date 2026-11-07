@@ -13,16 +13,14 @@ The application is built using Spring Boot and MySQL. It is containerized using 
 ```mermaid
 flowchart TD
     A[Developer] --> B[GitHub Repository]
-    B --> C[Jenkins CI/CD Pipeline]
+    B --> C[Jenkins Pipeline]
     C --> D[Build and Unit Tests]
-    D --> E[Package Application]
-    E --> F[Build Docker Image]
-    F --> G[Amazon ECR]
-    G --> H[Register ECS Task Definition]
-    H --> I[Amazon ECS Fargate]
-    I --> J[Application Load Balancer]
-    I --> K[Amazon RDS - MySQL]
-    I --> L[Amazon CloudWatch]
+    D --> E[Docker Image]
+    E --> F[Amazon ECR]
+    F --> G[Amazon ECS Fargate]
+    H[Application Load Balancer] --> G
+    G --> I[Amazon RDS MySQL]
+    G --> J[Amazon CloudWatch]
 ```
 ## Project Screenshots
 
@@ -337,6 +335,7 @@ The service tests cover:
 - Updating employee details.
 - Deleting an employee.
 
+
 ## Project Structure
 
 ```text
@@ -366,12 +365,15 @@ employee-management-system/
 │           └── service/impl/
 │               └── EmployeeServiceImplTest.java
 │
+├── screenshots/
+│
 ├── Dockerfile
 ├── docker-compose.yml
 ├── Jenkinsfile
 ├── pom.xml
 ├── mvnw
 ├── mvnw.cmd
+├── .gitignore
 └── README.md
 ```
 
