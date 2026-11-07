@@ -24,6 +24,35 @@ flowchart TD
     I --> K[Amazon RDS - MySQL]
     I --> L[Amazon CloudWatch]
 ```
+## Project Screenshots
+
+### 1. Jenkins CI/CD Pipeline
+
+![Jenkins Pipeline Success](screenshots/01-jenkins-pipeline-success.png)
+
+### 2. Load Balancer Target Health
+
+![Healthy Target Group](screenshots/02-load-balancer-target-health.png)
+
+### 3. Amazon ECS Service
+
+![ECS Service Status](screenshots/03-ecs-service-status.png)
+
+### 4. ECS Deployment Timeline
+
+![Successful ECS Deployment](screenshots/04-ecs-deployment-timeline.png)
+
+### 5. Employee REST API Response
+
+![Employee API Response](screenshots/05-employee-api-response.png)
+
+### 6. Amazon ECR Repository
+
+![Amazon ECR Repository](screenshots/06-amazon-ecr-repository.png)
+
+### 7. Amazon RDS – MySQL Database
+
+![Amazon RDS Instance](screenshots/07-amazon-rds-instance.png)
 
 ## Technologies Used
 
