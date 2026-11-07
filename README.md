@@ -19,14 +19,11 @@ The project uses Jenkins to automate the CI/CD workflow and AWS services to host
 ```mermaid
 flowchart TD
     A[Developer] --> B[GitHub Repository]
-    B --> C[Jenkins CI/CD Pipeline]
-    C --> D[Build and Compile]
-    D --> E[Unit Testing]
-    E --> F[Package Application]
-    F --> G[Build Docker Image]
-    G --> H[Amazon ECR]
-    H --> I[Register ECS Task Definition]
-    I --> J[Deploy to ECS Fargate]
+    B --> C[Jenkins]
+    C --> D[Build and Test]
+    D --> E[Docker Image]
+    E --> F[Amazon ECR]
+    F --> G[Amazon ECS Fargate]
 ```
 
 ### AWS Deployment Architecture
@@ -37,53 +34,34 @@ flowchart TD
     B --> C[Amazon ECS Fargate]
     C --> D[Spring Boot Container]
     D --> E[Amazon RDS MySQL]
-    D --> F[Amazon CloudWatch]
+    D --> F[CloudWatch Logs]
     G[AWS Secrets Manager] --> C
 ```
 
 ## Project Screenshots
 
+## Project Screenshots
+
 ### 1. Jenkins CI/CD Pipeline
-
-![Jenkins Pipeline Success](screenshots/01-jenkins-pipeline-success.png)
-
-Jenkins pipeline showing successful execution of the automated build and deployment stages.
+![Jenkins Pipeline](screenshots/01-jenkins-pipeline-success.png)
 
 ### 2. Load Balancer Target Health
-
 ![Load Balancer Target Health](screenshots/02-load-balancer-target-health.png)
 
-Target group showing the application target in a healthy state.
-
 ### 3. Amazon ECS Service
-
 ![Amazon ECS Service](screenshots/03-ecs-service-status.png)
 
-ECS service showing the deployed application and running task.
-
 ### 4. ECS Deployment Timeline
-
 ![ECS Deployment Timeline](screenshots/04-ecs-deployment-timeline.png)
 
-ECS deployment details showing the deployment progress and successful completion.
-
 ### 5. Employee REST API Response
-
 ![Employee API Response](screenshots/05-employee-api-response.png)
 
-Employee API returning JSON data through the Application Load Balancer.
-
 ### 6. Amazon ECR Repository
-
 ![Amazon ECR Repository](screenshots/06-amazon-ecr-repository.png)
 
-Amazon ECR repository containing the application Docker image.
-
 ### 7. Amazon RDS – MySQL Database
-
 ![Amazon RDS Instance](screenshots/07-amazon-rds-instance.png)
-
-Amazon RDS MySQL database instance used for persistent employee data storage.
 
 ## Technologies Used
 
