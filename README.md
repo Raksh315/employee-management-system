@@ -1,56 +1,89 @@
 # Employee Management System – Automated CI/CD Pipeline on AWS
 
-A containerized Employee Management System built using **Java 17, Spring Boot, MySQL, Docker, Jenkins, and AWS**. This project demonstrates an end-to-end CI/CD pipeline that automates application compilation, unit testing, packaging, Docker image creation, Amazon ECR publishing, and deployment to Amazon ECS Fargate.
+A containerized Employee Management System built using **Java 17, Spring Boot, MySQL, Docker, Jenkins, and AWS**.
+
+This project demonstrates an automated CI/CD workflow that compiles, tests, packages, containerizes, and deploys a Spring Boot application to Amazon ECS Fargate using Jenkins and AWS services.
 
 ## Project Overview
 
-The Employee Management System is a RESTful backend application that allows users to perform CRUD (Create, Read, Update, Delete) operations on employee records.
+The Employee Management System is a RESTful backend application that provides CRUD (Create, Read, Update, Delete) operations for managing employee records.
 
-The application is built using Spring Boot and MySQL. It is containerized using Docker and deployed on AWS using an automated Jenkins CI/CD pipeline.
+The application uses Spring Boot and MySQL for backend development and database management. Docker is used for containerization, while Jenkins automates the build and deployment process on AWS.
 
 ## Architecture
+
+The project uses Jenkins to automate the CI/CD workflow and AWS services to host the application.
+
+### CI/CD Pipeline Architecture
 
 ```mermaid
 flowchart TD
     A[Developer] --> B[GitHub Repository]
-    B --> C[Jenkins Pipeline]
-    C --> D[Build and Unit Tests]
-    D --> E[Docker Image]
-    E --> F[Amazon ECR]
-    F --> G[Amazon ECS Fargate]
-    H[Application Load Balancer] --> G
-    G --> I[Amazon RDS MySQL]
-    G --> J[Amazon CloudWatch]
+    B --> C[Jenkins CI/CD Pipeline]
+    C --> D[Build and Compile]
+    D --> E[Unit Testing]
+    E --> F[Package Application]
+    F --> G[Build Docker Image]
+    G --> H[Amazon ECR]
+    H --> I[Register ECS Task Definition]
+    I --> J[Deploy to ECS Fargate]
 ```
+
+### AWS Deployment Architecture
+
+```mermaid
+flowchart TD
+    A[User] --> B[Application Load Balancer]
+    B --> C[Amazon ECS Fargate]
+    C --> D[Spring Boot Container]
+    D --> E[Amazon RDS MySQL]
+    D --> F[Amazon CloudWatch]
+    G[AWS Secrets Manager] --> C
+```
+
 ## Project Screenshots
 
 ### 1. Jenkins CI/CD Pipeline
 
 ![Jenkins Pipeline Success](screenshots/01-jenkins-pipeline-success.png)
 
+Jenkins pipeline showing successful execution of the automated build and deployment stages.
+
 ### 2. Load Balancer Target Health
 
-![Healthy Target Group](screenshots/02-load-balancer-target-health.png)
+![Load Balancer Target Health](screenshots/02-load-balancer-target-health.png)
+
+Target group showing the application target in a healthy state.
 
 ### 3. Amazon ECS Service
 
-![ECS Service Status](screenshots/03-ecs-service-status.png)
+![Amazon ECS Service](screenshots/03-ecs-service-status.png)
+
+ECS service showing the deployed application and running task.
 
 ### 4. ECS Deployment Timeline
 
-![Successful ECS Deployment](screenshots/04-ecs-deployment-timeline.png)
+![ECS Deployment Timeline](screenshots/04-ecs-deployment-timeline.png)
+
+ECS deployment details showing the deployment progress and successful completion.
 
 ### 5. Employee REST API Response
 
 ![Employee API Response](screenshots/05-employee-api-response.png)
 
+Employee API returning JSON data through the Application Load Balancer.
+
 ### 6. Amazon ECR Repository
 
 ![Amazon ECR Repository](screenshots/06-amazon-ecr-repository.png)
 
+Amazon ECR repository containing the application Docker image.
+
 ### 7. Amazon RDS – MySQL Database
 
 ![Amazon RDS Instance](screenshots/07-amazon-rds-instance.png)
+
+Amazon RDS MySQL database instance used for persistent employee data storage.
 
 ## Technologies Used
 
@@ -61,7 +94,7 @@ flowchart TD
 | Database | MySQL 8.0 |
 | ORM | Spring Data JPA, Hibernate |
 | Build Tool | Maven |
-| Unit Testing | JUnit 5, Mockito |
+| Testing | JUnit 5, Mockito |
 | Containerization | Docker, Docker Compose |
 | CI/CD | Jenkins |
 | Container Registry | Amazon ECR |
@@ -76,12 +109,12 @@ flowchart TD
 ## Application Features
 
 - Create new employee records.
-- Retrieve all employees.
-- Retrieve an employee by ID.
+- Retrieve all employee records.
+- Retrieve an employee using their ID.
 - Update existing employee information.
 - Delete employee records.
 - Store employee information in a MySQL database.
-- Use a layered architecture to separate application responsibilities.
+- Separate application responsibilities using a layered architecture.
 
 ## Application Architecture
 
@@ -123,9 +156,11 @@ Base endpoint: `/api/employees`
 | PUT | `/api/employees/{id}` | Update employee details |
 | DELETE | `/api/employees/{id}` | Delete an employee |
 
-### Sample Request
+### Sample API Request
 
 **POST `/api/employees`**
+
+Request body:
 
 ```json
 {
@@ -144,7 +179,7 @@ The application is containerized using a multi-stage Dockerfile.
 
 - Uses Maven 3.9.9 with Eclipse Temurin JDK 17.
 - Copies the Maven configuration and application source code.
-- Packages the Spring Boot application.
+- Builds the Spring Boot application.
 
 ### Runtime Stage
 
@@ -153,37 +188,40 @@ The application is containerized using a multi-stage Dockerfile.
 - Exposes port 8080.
 - Starts the Spring Boot application.
 
+### Docker Compose
+
 Docker Compose is configured to run the application and MySQL database locally.
 
 It includes:
-- A MySQL 8.0 container.
-- An application container.
-- A health check to verify MySQL readiness.
-- A named Docker volume for persistent MySQL data.
+
+- MySQL 8.0 container.
+- Spring Boot application container.
+- MySQL health check.
+- Named Docker volume for persistent database storage.
 - Environment variables for database configuration.
 
 ## Jenkins CI/CD Pipeline
 
-Jenkins automates the build, test, packaging, containerization, and deployment process.
+Jenkins automates the build, testing, packaging, containerization, and deployment process.
 
 ### Pipeline Stages
 
-1. **Checkout:** Retrieves the application source code from GitHub.
+1. **Checkout:** Retrieves application source code from GitHub.
 2. **Build:** Compiles the application using Maven.
 3. **Unit Tests:** Executes JUnit 5 and Mockito service unit tests.
 4. **Package Application:** Packages the Spring Boot application.
-5. **Build Docker Image:** Builds a Docker image using the project Dockerfile.
+5. **Build Docker Image:** Builds the Docker image using the project Dockerfile.
 6. **Verify AWS Identity:** Verifies the AWS IAM identity used by Jenkins.
 7. **Login to ECR:** Authenticates Docker with Amazon ECR.
 8. **Push Image to ECR:** Tags and pushes the Docker image using the Jenkins build number.
 9. **Register ECS Task Definition:** Retrieves the current task definition, updates the container image, and registers a new revision.
-10. **Deploy to ECS:** Updates the ECS service to use the new task definition and monitors deployment status.
+10. **Deploy to ECS:** Updates the ECS service and monitors deployment status.
 
 ### Pipeline Automation Highlights
 
-- Uses the Jenkins build number as the Docker image tag.
+- Uses Jenkins build numbers for Docker image tagging.
 - Uses an EC2 IAM role for AWS authentication.
-- Uses Amazon ECR to store application images.
+- Pushes Docker images to Amazon ECR.
 - Uses AWS CLI and `jq` to update ECS task definitions.
 - Monitors ECS deployment status, running tasks, and rollout state.
 - Publishes JUnit test reports in Jenkins.
@@ -199,9 +237,9 @@ The application is deployed using the following AWS services:
 | Amazon ECS | Manages container deployment |
 | AWS Fargate | Runs containers without managing EC2 worker nodes |
 | Amazon RDS | Hosts the MySQL database |
-| Application Load Balancer | Distributes incoming application traffic |
+| Application Load Balancer | Routes incoming application traffic |
 | AWS Secrets Manager | Stores database credentials |
-| AWS IAM | Controls access to AWS resources |
+| AWS IAM | Manages permissions and access |
 | Amazon CloudWatch | Collects container application logs |
 
 ### Deployment Workflow
@@ -215,10 +253,10 @@ The application is deployed using the following AWS services:
 7. Jenkins updates the ECS service.
 8. ECS runs the application container using AWS Fargate.
 9. The Application Load Balancer routes incoming HTTP requests to the application.
-10. The application connects to the MySQL database hosted on Amazon RDS.
+10. The application connects to MySQL hosted on Amazon RDS.
 11. Application logs are collected in Amazon CloudWatch.
 
-Database credentials are provided to the ECS task through AWS Secrets Manager rather than being hardcoded in the application.
+Database credentials are supplied to ECS tasks through AWS Secrets Manager instead of being hardcoded in the application.
 
 ## Running Locally
 
@@ -229,6 +267,7 @@ Database credentials are provided to the ECS task through AWS Secrets Manager ra
 - MySQL 8.0
 
 For containerized execution:
+
 - Docker
 - Docker Compose
 
@@ -267,7 +306,7 @@ Run the application:
 mvn spring-boot:run
 ```
 
-The application will be available at:
+Application URL:
 
 ```text
 http://localhost:8080
@@ -288,39 +327,43 @@ Start the application and database containers:
 docker compose up --build -d
 ```
 
-The application will be available at:
+Application URL:
 
 ```text
 http://localhost:8081
 ```
 
-To check running containers:
+Check running containers:
 
 ```bash
 docker compose ps
 ```
 
-To view application logs:
+View application logs:
 
 ```bash
 docker compose logs -f app
 ```
 
-To stop the containers:
+Stop the containers:
 
 ```bash
 docker compose down
 ```
 
-The named MySQL volume is retained when containers are stopped. To remove the database volume as well, use `docker compose down -v` (this permanently removes the local database volume).
+The named MySQL volume is retained when containers are stopped. To remove the database volume as well, use:
 
-**Note:** Do not commit the `.env` file. It contains local credentials.
+```bash
+docker compose down -v
+```
+
+**Note:** Do not commit the `.env` file because it contains local credentials.
 
 ## Running Unit Tests
 
 The project uses JUnit 5 and Mockito to test the service layer.
 
-Run the service unit tests using:
+Run the service unit tests:
 
 ```bash
 mvn -B -Dtest=EmployeeServiceImplTest test
@@ -334,7 +377,6 @@ The service tests cover:
 - Handling an employee ID that does not exist.
 - Updating employee details.
 - Deleting an employee.
-
 
 ## Project Structure
 
@@ -366,14 +408,22 @@ employee-management-system/
 │               └── EmployeeServiceImplTest.java
 │
 ├── screenshots/
+│   ├── 01-jenkins-pipeline-success.png
+│   ├── 02-load-balancer-target-health.png
+│   ├── 03-ecs-service-status.png
+│   ├── 04-ecs-deployment-timeline.png
+│   ├── 05-employee-api-response.png
+│   ├── 06-amazon-ecr-repository.png
+│   └── 07-amazon-rds-instance.png
 │
+├── .mvn/
+├── .gitignore
 ├── Dockerfile
 ├── docker-compose.yml
 ├── Jenkinsfile
 ├── pom.xml
 ├── mvnw
 ├── mvnw.cmd
-├── .gitignore
 └── README.md
 ```
 
